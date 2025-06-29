@@ -9,10 +9,14 @@
     body {
       font-family: sans-serif;
       margin: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
     }
     .top-bar {
       padding: 10px;
       background: #f7f7f7;
+      flex-shrink: 0;
     }
     .control-row {
       display: flex;
@@ -28,30 +32,45 @@
       overflow-y: auto;
       gap: 8px;
     }
+    .map-buttons {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+    }
     .week-info-container {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
       max-height: 10em;
       overflow-y: auto;
-      margin: 10px;
+      margin: 10px 0;
+    }
+    .week-info-container > div {
+      border: 1px solid #ccc;
+      padding: 6px 10px;
+      border-radius: 4px;
+      background: #fff;
     }
     .hidden {
       display: none;
     }
     #map {
-      height: 80vh;
+      flex: 1;
     }
     .version {
       font-size: 0.8em;
       color: gray;
       text-align: center;
-      margin-top: 10px;
+      padding: 5px 0;
+      flex-shrink: 0;
     }
     @media screen and (max-width: 600px) {
-      .control-row,
       .scroll-row {
         flex-direction: column;
+      }
+      .map-buttons {
+        flex-wrap: nowrap;
       }
     }
   </style>
@@ -62,17 +81,19 @@
       <label><input type="checkbox" id="all-weeks"> 전체 보기</label>
       <div class="scroll-row" id="week-checkboxes"></div>
     </div>
-    <div class="control-row">
+    <div class="map-buttons">
       <button id="btn-osm">일반지도</button>
       <button id="btn-satellite">위성지도</button>
       <button id="btn-hybrid">하이브리드</button>
+    </div>
+    <div class="control-row">
       <button id="toggle-week-info">주차 정보 토글</button>
     </div>
     <div id="week-info-container" class="week-info-container"></div>
   </div>
 
   <div id="map"></div>
-  <div class="version">도보일주 지도 뷰어 v2025.06.29.08</div>
+  <div class="version">도보일주 지도 뷰어 v2025.06.29.11</div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
@@ -134,7 +155,7 @@
     function loadTrackData(week) {
       if (trackLayers[week]) return;
       const script = document.createElement('script');
-      script.src = `track_${week}\uC8FC\uCC28.js`;
+      script.src = `track_${week}주차.js`;
       script.onload = () => {
         const data = window.trackDataPart?.[`${week}주차`];
         if (!data) return;
