@@ -4,180 +4,116 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>도보일주 지도 뷰어</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    html, body {
+    body {
+      font-family: sans-serif;
       margin: 0;
       padding: 0;
-      height: 100%;
-      font-family: sans-serif;
     }
-    #map {
-      height: 80%;
-    }
-    #controls {
-      padding: 10px;
-      background: #f2f2f2;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .scroll-container {
-      overflow-x: auto;
-    }
-    #checkboxes {
+
+    .control-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
-      max-height: calc(3 * 30px);
-    }
-    #basemap-btns, #meta {
-      display: flex;
-      gap: 10px;
       align-items: center;
-      flex-wrap: wrap;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
     }
-    #info-section {
-      display: none;
-      flex-wrap: wrap;
-      gap: 5px;
-      margin-top: 5px;
+
+    .checkbox-container {
+      max-height: 2.5rem;
+      overflow-x: auto;
+      overflow-y: hidden;
+      white-space: nowrap;
+      width: 100%;
+      padding: 0 1rem;
     }
-    .info-box {
-      font-size: 13px;
-      padding: 4px 6px;
-      background: #fff;
+
+    .checkbox-wrapper {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .map-container {
+      width: 100%;
+      height: 80vh;
+    }
+
+    .week-info-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      max-height: 4.5rem; /* 2줄 기준 */
+      overflow-y: auto;
+      padding: 0 1rem;
+    }
+
+    .week-info {
       border: 1px solid #ccc;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      background: #f5f5f5;
+      font-size: 0.9rem;
     }
-    @media (max-width: 768px) {
-      #checkboxes {
-        font-size: 13px;
-        overflow-x: auto;
+
+    .footer-version {
+      text-align: center;
+      color: #777;
+      font-size: 0.8rem;
+      padding: 0.5rem;
+    }
+
+    button {
+      padding: 0.4rem 0.8rem;
+    }
+
+    @media (max-width: 600px) {
+      .checkbox-wrapper {
+        gap: 0.5rem;
       }
-      .info-box {
-        font-size: 12px;
+
+      .week-info {
+        font-size: 0.8rem;
       }
     }
   </style>
 </head>
 <body>
-  <div id="controls">
-    <div class="scroll-container">
-      <div id="checkboxes">
-        <label><input type="checkbox" id="allCheck" onchange="toggleAll(this)"> 전체 보기</label>
-        <script>
-          for (let i = 1; i <= 16; i++) {
-            document.write(`<label><input type="checkbox" value="${i}주차" onchange="toggleTrack(this)"> ${i}주차</label>`);
-          }
-        </script>
+  <!-- 전체/주차별 보기 -->
+  <div class="control-row">
+    <label><input type="checkbox" id="selectAll" /> 전체 보기</label>
+    <div class="checkbox-container">
+      <div class="checkbox-wrapper" id="checkboxWrapper">
+        <!-- 주차별 체크박스가 JS로 삽입됨 -->
       </div>
-    </div>
-    <div id="basemap-btns">
-      <button onclick="setBaseLayer('osm')">일반지도</button>
-      <button onclick="setBaseLayer('satellite')">위성지도</button>
-      <button onclick="setBaseLayer('hybrid')">하이브리드</button>
-      <button onclick="toggleInfo()">주차 정보 토글</button>
-    </div>
-    <div id="info-section"></div>
-    <div id="meta">
-      <span style="font-size: 12px; color: gray;">도보일주 지도 뷰어 v2025.06.29.05</span>
     </div>
   </div>
 
-  <div id="map"></div>
+  <!-- 지도 유형 + 주차 정보 토글 -->
+  <div class="control-row">
+    <button onclick="setBaseLayer('osm')">일반지도</button>
+    <button onclick="setBaseLayer('satellite')">위성지도</button>
+    <button onclick="setBaseLayer('hybrid')">하이브리드</button>
+    <button onclick="toggleWeekInfo()">주차 정보 토글</button>
+  </div>
 
-  <script>
-    const map = L.map('map').setView([36.5, 127.5], 7);
+  <!-- 주차 정보 -->
+  <div class="week-info-container" id="weekInfoContainer">
+    <!-- 주차 정보 텍스트가 JS로 삽입됨 -->
+  </div>
 
-    const baseLayers = {
-      osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
-      }),
-      satellite: L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-        maxZoom: 20,
-        subdomains: ['mt0','mt1','mt2','mt3'],
-        attribution: '© Google'
-      }),
-      hybrid: L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
-        maxZoom: 20,
-        subdomains: ['mt0','mt1','mt2','mt3'],
-        attribution: '© Google Hybrid'
-      })
-    };
+  <!-- 지도 -->
+  <div id="map" class="map-container"></div>
 
-    baseLayers.osm.addTo(map);
+  <!-- 버전 -->
+  <div class="footer-version">
+    도보일주 지도 뷰어 v2025.06.29.06
+  </div>
 
-    function setBaseLayer(type) {
-      Object.values(baseLayers).forEach(layer => {
-        if (map.hasLayer(layer)) map.removeLayer(layer);
-      });
-      baseLayers[type].addTo(map);
-    }
-
-    const layerRefs = {};
-    const colorPool = ['red', 'blue', 'green', 'orange', 'purple', 'magenta', 'teal'];
-
-    function toggleTrack(cb) {
-      const key = cb.value;
-      if (cb.checked) {
-        loadJS(`track_${key}.js`, () => drawTrack(key));
-      } else {
-        removeTrack(key);
-      }
-    }
-
-    function loadJS(src, callback) {
-      if (document.querySelector(`script[src="${src}"]`)) {
-        callback(); return;
-      }
-      const s = document.createElement('script');
-      s.src = src;
-      s.onload = callback;
-      document.body.appendChild(s);
-    }
-
-    function drawTrack(key) {
-      if (!window.trackDataPart || !trackDataPart[key]) return;
-      const data = trackDataPart[key];
-      const latlngs = data.coords.map(p => [p.lat, p.lon]);
-      const polyline = L.polyline(latlngs, {
-        color: colorPool[Object.keys(layerRefs).length % colorPool.length],
-        weight: 4,
-        opacity: 0.8
-      }).addTo(map);
-      layerRefs[key] = polyline;
-      map.fitBounds(polyline.getBounds());
-
-      const infoBox = document.createElement('div');
-      infoBox.className = 'info-box';
-      infoBox.innerText = `${key}: ${data.start} ~ ${data.end}`;
-      document.getElementById('info-section').appendChild(infoBox);
-    }
-
-    function removeTrack(key) {
-      if (layerRefs[key]) {
-        map.removeLayer(layerRefs[key]);
-        delete layerRefs[key];
-        document.querySelectorAll('.info-box').forEach(box => {
-          if (box.innerText.startsWith(key)) box.remove();
-        });
-      }
-    }
-
-    function toggleAll(master) {
-      document.querySelectorAll('#checkboxes input[type=checkbox]').forEach(cb => {
-        if (cb !== master) {
-          cb.checked = master.checked;
-          toggleTrack(cb);
-        }
-      });
-    }
-
-    function toggleInfo() {
-      const info = document.getElementById('info-section');
-      info.style.display = info.style.display === 'flex' ? 'none' : 'flex';
-    }
-  </script>
+  <!-- Leaflet & Script -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="js/map-loader.js"></script>
 </body>
 </html>
