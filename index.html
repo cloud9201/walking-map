@@ -1,97 +1,171 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>도보일주 지도 뷰어</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     body {
-      margin: 0;
       font-family: sans-serif;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
+      margin: 0;
     }
-    .controls {
+    .top-bar {
       padding: 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
+      background: #f7f7f7;
     }
-    .checkbox-row {
+    .control-row {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      overflow-x: auto;
-      max-height: 3.5em;
+      align-items: center;
+      margin-bottom: 8px;
     }
-    .map-buttons {
-      display: flex;
-      gap: 10px;
-    }
-    #weekInfoContainer {
+    .scroll-row {
       display: flex;
       flex-wrap: wrap;
-      max-height: 5em;
+      max-height: 5.5em;
       overflow-y: auto;
-      gap: 10px;
+      gap: 8px;
+    }
+    .week-info-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      max-height: 10em;
+      overflow-y: auto;
+      margin: 10px;
+    }
+    .hidden {
+      display: none;
     }
     #map {
-      flex: 1;
+      height: 80vh;
     }
     .version {
+      font-size: 0.8em;
+      color: gray;
       text-align: center;
-      font-size: 0.75rem;
-      color: #666;
-      margin-bottom: 5px;
+      margin-top: 10px;
+    }
+    @media screen and (max-width: 600px) {
+      .control-row,
+      .scroll-row {
+        flex-direction: column;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="controls">
-    <!-- 전체 보기 / 주차별 체크박스 -->
-    <div class="checkbox-row">
-      <label><input type="checkbox" id="toggleAll" /> 전체 보기</label>
-      <label><input type="checkbox" class="week-checkbox" value="1주차" /> 1주차</label>
-      <label><input type="checkbox" class="week-checkbox" value="2주차" /> 2주차</label>
-      <label><input type="checkbox" class="week-checkbox" value="3주차" /> 3주차</label>
-      <label><input type="checkbox" class="week-checkbox" value="4주차" /> 4주차</label>
-      <label><input type="checkbox" class="week-checkbox" value="5주차" /> 5주차</label>
-      <label><input type="checkbox" class="week-checkbox" value="6주차" /> 6주차</label>
-      <label><input type="checkbox" class="week-checkbox" value="7주차" /> 7주차</label>
-      <label><input type="checkbox" class="week-checkbox" value="8주차" /> 8주차</label>
-      <label><input type="checkbox" class="week-checkbox" value="9주차" /> 9주차</label>
-      <label><input type="checkbox" class="week-checkbox" value="10주차" /> 10주차</label>
-      <label><input type="checkbox" class="week-checkbox" value="11주차" /> 11주차</label>
-      <label><input type="checkbox" class="week-checkbox" value="12주차" /> 12주차</label>
-      <label><input type="checkbox" class="week-checkbox" value="13주차" /> 13주차</label>
-      <label><input type="checkbox" class="week-checkbox" value="14주차" /> 14주차</label>
-      <label><input type="checkbox" class="week-checkbox" value="15주차" /> 15주차</label>
-      <label><input type="checkbox" class="week-checkbox" value="16주차" /> 16주차</label>
+  <div class="top-bar">
+    <div class="control-row">
+      <label><input type="checkbox" id="all-weeks"> 전체 보기</label>
+      <div class="scroll-row" id="week-checkboxes"></div>
     </div>
-    <!-- 지도 유형 및 정보 토글 -->
-    <div class="map-buttons">
-      <button onclick="setBaseMap('normal')">일반지도</button>
-      <button onclick="setBaseMap('satellite')">위성지도</button>
-      <button onclick="setBaseMap('hybrid')">하이브리드</button>
-      <button onclick="toggleWeekInfo()">주차 정보 토글</button>
+    <div class="control-row">
+      <button id="btn-osm">일반지도</button>
+      <button id="btn-satellite">위성지도</button>
+      <button id="btn-hybrid">하이브리드</button>
+      <button id="toggle-week-info">주차 정보 토글</button>
     </div>
-    <!-- 주차별 날짜 정보 -->
-    <div id="weekInfoContainer">
-      <!-- 주차별 날짜 정보는 JS로 채워짐 -->
-    </div>
+    <div id="week-info-container" class="week-info-container"></div>
   </div>
-  <!-- 지도 -->
-  <div id="map"></div>
-  <!-- 버전 -->
-  <div class="version">도보일주 지도 뷰어 v2025.06.29.07</div>
 
-  <!-- 스크립트들 (Leaflet 등) -->
+  <div id="map"></div>
+  <div class="version">도보일주 지도 뷰어 v2025.06.29.08</div>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    // JS 코드 작성 위치 (트랙 로딩, 체크박스 핸들링, 지도 설정 등)
-    // 예시: setBaseMap, toggleWeekInfo 함수 정의
+    const map = L.map('map').setView([36.5, 127.5], 7);
+
+    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png');
+    const satelliteLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+      subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+    });
+    const hybridLayer = L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+      subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+    });
+
+    let currentBaseLayer = osmLayer;
+    osmLayer.addTo(map);
+
+    document.getElementById('btn-osm').onclick = () => switchBase(osmLayer);
+    document.getElementById('btn-satellite').onclick = () => switchBase(satelliteLayer);
+    document.getElementById('btn-hybrid').onclick = () => switchBase(hybridLayer);
+
+    function switchBase(newLayer) {
+      if (map.hasLayer(currentBaseLayer)) map.removeLayer(currentBaseLayer);
+      currentBaseLayer = newLayer;
+      map.addLayer(currentBaseLayer);
+    }
+
+    const weekData = Array.from({ length: 16 }, (_, i) => ({
+      week: i + 1,
+      date: `2014-01-${(i * 7 + 1).toString().padStart(2, '0')} ~ 2014-01-${(i * 7 + 7).toString().padStart(2, '0')}`
+    }));
+
+    const checkboxContainer = document.getElementById('week-checkboxes');
+    const infoContainer = document.getElementById('week-info-container');
+
+    weekData.forEach(({ week, date }) => {
+      const checkbox = document.createElement('label');
+      checkbox.innerHTML = `<input type="checkbox" class="week-checkbox" value="${week}"> ${week}주차`;
+      checkboxContainer.appendChild(checkbox);
+
+      const info = document.createElement('div');
+      info.textContent = `${week}주차: ${date}`;
+      infoContainer.appendChild(info);
+    });
+
+    document.getElementById('all-weeks').addEventListener('change', function () {
+      document.querySelectorAll('.week-checkbox').forEach(cb => {
+        cb.checked = this.checked;
+        cb.dispatchEvent(new Event('change'));
+      });
+    });
+
+    document.getElementById('toggle-week-info').addEventListener('click', () => {
+      infoContainer.classList.toggle('hidden');
+    });
+
+    const trackLayers = {};
+    const colorPool = ['red', 'blue', 'green', 'orange', 'purple', 'teal'];
+
+    function loadTrackData(week) {
+      if (trackLayers[week]) return;
+      const script = document.createElement('script');
+      script.src = `track_${week}\uC8FC\uCC28.js`;
+      script.onload = () => {
+        const data = window.trackDataPart?.[`${week}주차`];
+        if (!data) return;
+
+        const latlngs = data.coords.map(p => [p.lat, p.lon]);
+        const polyline = L.polyline(latlngs, {
+          color: colorPool[week % colorPool.length],
+          weight: 4,
+          opacity: 0.8
+        }).addTo(map);
+        trackLayers[week] = polyline;
+        map.fitBounds(polyline.getBounds());
+      };
+      document.body.appendChild(script);
+    }
+
+    function removeTrackLayer(week) {
+      const polyline = trackLayers[week];
+      if (polyline) {
+        map.removeLayer(polyline);
+        delete trackLayers[week];
+      }
+    }
+
+    document.querySelectorAll('.week-checkbox').forEach(cb => {
+      cb.addEventListener('change', function () {
+        const week = this.value;
+        if (this.checked) loadTrackData(week);
+        else removeTrackLayer(week);
+      });
+    });
   </script>
 </body>
 </html>
