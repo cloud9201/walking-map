@@ -1,0 +1,161 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>도보일주 지도 뷰어 (JS 분할 로딩)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <style>
+    html, body { margin:0; padding:0; height:100%; font-family:sans-serif; }
+    #map { height: 90%; }
+    #controls {
+      height: 10%;
+      padding: 5px;
+      background: #f2f2f2;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    #checkboxes, #info, #basemap-btns {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+    label { font-size: 14px; }
+    .info-box {
+      font-size: 13px;
+      padding: 5px;
+      background: #fff;
+      border: 1px solid #ccc;
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <div id="checkboxes">
+
+      <label><input type="checkbox" value="1주차" onchange="toggleTrack(this)"> 1주차</label>
+    
+      <label><input type="checkbox" value="2주차" onchange="toggleTrack(this)"> 2주차</label>
+    
+      <label><input type="checkbox" value="3주차" onchange="toggleTrack(this)"> 3주차</label>
+    
+      <label><input type="checkbox" value="4주차" onchange="toggleTrack(this)"> 4주차</label>
+    
+      <label><input type="checkbox" value="5주차" onchange="toggleTrack(this)"> 5주차</label>
+    
+      <label><input type="checkbox" value="6주차" onchange="toggleTrack(this)"> 6주차</label>
+    
+      <label><input type="checkbox" value="7주차" onchange="toggleTrack(this)"> 7주차</label>
+    
+      <label><input type="checkbox" value="8주차" onchange="toggleTrack(this)"> 8주차</label>
+    
+      <label><input type="checkbox" value="9주차" onchange="toggleTrack(this)"> 9주차</label>
+    
+      <label><input type="checkbox" value="10주차" onchange="toggleTrack(this)"> 10주차</label>
+    
+      <label><input type="checkbox" value="11주차" onchange="toggleTrack(this)"> 11주차</label>
+    
+      <label><input type="checkbox" value="12주차" onchange="toggleTrack(this)"> 12주차</label>
+    
+      <label><input type="checkbox" value="13주차" onchange="toggleTrack(this)"> 13주차</label>
+    
+      <label><input type="checkbox" value="14주차" onchange="toggleTrack(this)"> 14주차</label>
+    
+      <label><input type="checkbox" value="15주차" onchange="toggleTrack(this)"> 15주차</label>
+    
+      <label><input type="checkbox" value="16주차" onchange="toggleTrack(this)"> 16주차</label>
+    
+    </div>
+    <div id="info"></div>
+    <div id="basemap-btns">
+      <button onclick="setBaseLayer('osm')">일반지도</button>
+      <button onclick="setBaseLayer('satellite')">위성지도</button>
+      <button onclick="setBaseLayer('hybrid')">하이브리드</button>
+    </div>
+  </div>
+  <div id="map"></div>
+  <script>
+    const map = L.map('map').setView([36.5, 127.5], 7);
+
+    const baseLayers = {
+      osm: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }),
+      satellite: L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        subdomains: ['mt0','mt1','mt2','mt3'],
+        attribution: '© Google'
+      }),
+      hybrid: L.tileLayer('https://{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        maxZoom: 20,
+        subdomains: ['mt0','mt1','mt2','mt3'],
+        attribution: '© Google Hybrid'
+      })
+    };
+
+    baseLayers.osm.addTo(map);
+
+    function setBaseLayer(type) {
+      map.eachLayer(layer => map.removeLayer(layer));
+      baseLayers[type].addTo(map);
+      document.querySelectorAll('input[type=checkbox]:checked').forEach(cb => drawTrack(cb.value));
+    }
+
+    const layerRefs = {};
+    const colorPool = ['red','blue','green','orange','purple','magenta','teal'];
+
+    function toggleTrack(cb) {
+      if (cb.checked) {
+        loadJS(`track_${cb.value}.js`, () => {
+          drawTrack(cb.value);
+        });
+      } else {
+        removeTrack(cb.value);
+      }
+    }
+
+    function loadJS(src, callback) {
+      if (document.querySelector(`script[src="${src}"]`)) {
+        callback(); return;
+      }
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = callback;
+      document.body.appendChild(s);
+    }
+
+    function drawTrack(key) {
+      if (!window.trackDataPart || !trackDataPart[key]) return;
+      const data = trackDataPart[key];
+      const latlngs = data.coords.map(p => [p.lat, p.lon]);
+      const polyline = L.polyline(latlngs, {
+        color: colorPool[Object.keys(layerRefs).length % colorPool.length],
+        weight: 4,
+        opacity: 0.8
+      }).addTo(map);
+      layerRefs[key] = polyline;
+      map.fitBounds(polyline.getBounds());
+
+      const infoBox = document.createElement('div');
+      infoBox.className = 'info-box';
+      infoBox.innerText = `${key}: ${data.start} ~ ${data.end}`;
+      document.getElementById('info').appendChild(infoBox);
+    }
+
+    function removeTrack(key) {
+      if (layerRefs[key]) {
+        map.removeLayer(layerRefs[key]);
+        delete layerRefs[key];
+        const infoBoxList = document.querySelectorAll('.info-box');
+        infoBoxList.forEach(box => {
+          if (box.innerText.startsWith(key)) box.remove();
+        });
+      }
+    }
+  </script>
+</body>
+</html>
