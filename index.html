@@ -2,99 +2,89 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>도보일주 지도 뷰어 (JS 분할 로딩)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>도보일주 지도 뷰어</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <style>
     html, body {
-      margin: 0; padding: 0; height: 100%;
+      margin: 0;
+      padding: 0;
+      height: 100%;
       font-family: sans-serif;
     }
-    #map { height: 90%; }
-
+    #map {
+      height: 80%;
+    }
     #controls {
       padding: 10px;
-      background: #f8f8f8;
+      background: #f2f2f2;
       display: flex;
       flex-direction: column;
       gap: 10px;
-      box-sizing: border-box;
     }
-
-    #checkboxGroup, #mapOptions {
+    .scroll-container {
+      overflow-x: auto;
+    }
+    #checkboxes {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
+      max-height: calc(3 * 30px);
     }
-
-    label {
-      font-size: 14px;
+    #basemap-btns, #meta {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
     }
-
+    #info-section {
+      display: none;
+      flex-wrap: wrap;
+      gap: 5px;
+      margin-top: 5px;
+    }
     .info-box {
       font-size: 13px;
-      padding: 5px;
+      padding: 4px 6px;
       background: #fff;
       border: 1px solid #ccc;
-      margin: 3px 0;
     }
-
-    .version {
-      font-size: 12px;
-      color: #888;
-      text-align: center;
-    }
-
-    @media (max-width: 600px) {
-      label { font-size: 13px; }
-      .info-box { font-size: 12px; }
+    @media (max-width: 768px) {
+      #checkboxes {
+        font-size: 13px;
+        overflow-x: auto;
+      }
+      .info-box {
+        font-size: 12px;
+      }
     }
   </style>
 </head>
 <body>
   <div id="controls">
-    <!-- 전체 보기 체크박스 -->
-    <div id="checkboxMaster">
-      <label><input type="checkbox" id="masterToggle" onchange="toggleAllTracks(this)"> <strong>전체 보기</strong></label>
+    <div class="scroll-container">
+      <div id="checkboxes">
+        <label><input type="checkbox" id="allCheck" onchange="toggleAll(this)"> 전체 보기</label>
+        <script>
+          for (let i = 1; i <= 16; i++) {
+            document.write(`<label><input type="checkbox" value="${i}주차" onchange="toggleTrack(this)"> ${i}주차</label>`);
+          }
+        </script>
+      </div>
     </div>
-
-    <!-- 주차별 체크박스 -->
-    <div id="checkboxGroup">
-      <!-- 주차별 개별 체크박스 -->
-      <label><input type="checkbox" value="1주차" onchange="toggleTrack(this)"> 1주차</label>
-      <label><input type="checkbox" value="2주차" onchange="toggleTrack(this)"> 2주차</label>
-      <label><input type="checkbox" value="3주차" onchange="toggleTrack(this)"> 3주차</label>
-      <label><input type="checkbox" value="4주차" onchange="toggleTrack(this)"> 4주차</label>
-      <label><input type="checkbox" value="5주차" onchange="toggleTrack(this)"> 5주차</label>
-      <label><input type="checkbox" value="6주차" onchange="toggleTrack(this)"> 6주차</label>
-      <label><input type="checkbox" value="7주차" onchange="toggleTrack(this)"> 7주차</label>
-      <label><input type="checkbox" value="8주차" onchange="toggleTrack(this)"> 8주차</label>
-      <label><input type="checkbox" value="9주차" onchange="toggleTrack(this)"> 9주차</label>
-      <label><input type="checkbox" value="10주차" onchange="toggleTrack(this)"> 10주차</label>
-      <label><input type="checkbox" value="11주차" onchange="toggleTrack(this)"> 11주차</label>
-      <label><input type="checkbox" value="12주차" onchange="toggleTrack(this)"> 12주차</label>
-      <label><input type="checkbox" value="13주차" onchange="toggleTrack(this)"> 13주차</label>
-      <label><input type="checkbox" value="14주차" onchange="toggleTrack(this)"> 14주차</label>
-      <label><input type="checkbox" value="15주차" onchange="toggleTrack(this)"> 15주차</label>
-      <label><input type="checkbox" value="16주차" onchange="toggleTrack(this)"> 16주차</label>
-    </div>
-
-    <!-- 지도 종류 선택 -->
-    <div id="mapOptions">
+    <div id="basemap-btns">
       <button onclick="setBaseLayer('osm')">일반지도</button>
       <button onclick="setBaseLayer('satellite')">위성지도</button>
       <button onclick="setBaseLayer('hybrid')">하이브리드</button>
+      <button onclick="toggleInfo()">주차 정보 토글</button>
     </div>
-
-    <!-- 버전 -->
-    <div class="version">도보일주 지도 뷰어 v2025.06.29.04</div>
-
-    <!-- 경로 정보 -->
-    <div id="info"></div>
+    <div id="info-section"></div>
+    <div id="meta">
+      <span style="font-size: 12px; color: gray;">도보일주 지도 뷰어 v2025.06.29.05</span>
+    </div>
   </div>
 
-  <!-- 지도 -->
   <div id="map"></div>
 
   <script>
@@ -115,31 +105,25 @@
         attribution: '© Google Hybrid'
       })
     };
+
     baseLayers.osm.addTo(map);
 
     function setBaseLayer(type) {
-      map.eachLayer(layer => map.removeLayer(layer));
+      Object.values(baseLayers).forEach(layer => {
+        if (map.hasLayer(layer)) map.removeLayer(layer);
+      });
       baseLayers[type].addTo(map);
-      // 현재 표시 중인 트랙 다시 그림
-      document.querySelectorAll('#checkboxGroup input[type=checkbox]:checked').forEach(cb => drawTrack(cb.value));
     }
 
     const layerRefs = {};
-    const colorPool = ['red','blue','green','orange','purple','magenta','teal','darkgreen','brown','darkred'];
-
-    function toggleAllTracks(master) {
-      const checkboxes = document.querySelectorAll('#checkboxGroup input[type=checkbox]');
-      checkboxes.forEach(cb => {
-        cb.checked = master.checked;
-        cb.dispatchEvent(new Event('change'));
-      });
-    }
+    const colorPool = ['red', 'blue', 'green', 'orange', 'purple', 'magenta', 'teal'];
 
     function toggleTrack(cb) {
+      const key = cb.value;
       if (cb.checked) {
-        loadJS(`track_${cb.value}.js`, () => drawTrack(cb.value));
+        loadJS(`track_${key}.js`, () => drawTrack(key));
       } else {
-        removeTrack(cb.value);
+        removeTrack(key);
       }
     }
 
@@ -168,7 +152,7 @@
       const infoBox = document.createElement('div');
       infoBox.className = 'info-box';
       infoBox.innerText = `${key}: ${data.start} ~ ${data.end}`;
-      document.getElementById('info').appendChild(infoBox);
+      document.getElementById('info-section').appendChild(infoBox);
     }
 
     function removeTrack(key) {
@@ -179,6 +163,20 @@
           if (box.innerText.startsWith(key)) box.remove();
         });
       }
+    }
+
+    function toggleAll(master) {
+      document.querySelectorAll('#checkboxes input[type=checkbox]').forEach(cb => {
+        if (cb !== master) {
+          cb.checked = master.checked;
+          toggleTrack(cb);
+        }
+      });
+    }
+
+    function toggleInfo() {
+      const info = document.getElementById('info-section');
+      info.style.display = info.style.display === 'flex' ? 'none' : 'flex';
     }
   </script>
 </body>
